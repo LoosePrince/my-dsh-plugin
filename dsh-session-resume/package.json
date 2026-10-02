@@ -1,0 +1,39 @@
+{
+  "name": "dsh-session-resume",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "请求失败后的手动“重试”：在同一轮内原地重跑该步骤，不新增任何消息；以及会话停止时的无缝“恢复”：输入框为空也能点发送，直接继续上次未完成的工作，无需手动发“继续”。",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "host.js",
+    "client.js",
+    "icon.svg",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+# dsh-session-resume bundle patch.
+#
+# 一行 insert 即挂载 Host 半身（请求失败挂起 + 会话恢复动作 + 自己的 HTTP 路由）；
+# 浏览器半身由 package.json 的 dsh.client 声明，并绑定在 name 为裸包名的这一行上。
+- insert:
+    - id: dsh-session-resume
+      name: 'dsh-session-resume'
+      config: {}

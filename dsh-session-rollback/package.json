@@ -1,0 +1,35 @@
+{
+  "name": "dsh-session-rollback",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "编辑回溯：把过去的用户消息载入已有输入框编辑，发送时在该消息处新建分支，并把工作区文件恢复到那一刻（取消编辑即取消回溯）。",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "host.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "MIT"
+}

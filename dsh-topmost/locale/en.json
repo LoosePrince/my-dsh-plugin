@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Window Topmost",
+    "description": "Adds an always-on-top toggle beside the window's minimize button so the dsh desktop window can stay above other windows."
+  }
+}

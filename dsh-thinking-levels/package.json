@@ -1,0 +1,31 @@
+{
+  "name": "dsh-thinking-levels",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "为第三方（手写声明的）模型补上思考深度选择器：off / low / medium / high / xhigh / max，并让所选等级真正随请求下发。",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./host.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "host.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "test"
+  ],
+  "scripts": {
+    "test": "node test/verify.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "MIT"
+}

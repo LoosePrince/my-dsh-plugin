@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Retry & Resume",
+    "description": "Adds a manual Retry button after a failed request: the same step re-runs in place with no new message. On a stopped session with an empty composer the send button stays usable, and one click resumes the session to continue the unfinished work without sending a \"continue\" message."
+  }
+}

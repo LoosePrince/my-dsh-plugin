@@ -1,0 +1,8 @@
+# dsh-session-branch bundle patch.
+#
+# 一行 insert 即挂载 Host 半身（分支家族查询 + 自己的 HTTP 路由）；
+# 浏览器半身由 package.json 的 dsh.client 声明，并绑定在 name 为裸包名的这一行上。
+- insert:
+    - id: dsh-session-branch
+      name: 'dsh-session-branch'
+      config: {}

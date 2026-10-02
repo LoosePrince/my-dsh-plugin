@@ -1,0 +1,11 @@
+# dsh-thinking-levels bundle patch.
+#
+# 一行 insert 即挂载 Host 半身。
+#
+# 没有浏览器半身，这是刻意的：思考深度选择器（“推理等级”）是内置的
+# @deepseek-ai/dsh-client-ui-model-selection 渲染的，它只读取 Host 模型目录里
+# 每个模型的 reasoning 元数据。本插件补齐的正是那份元数据，所以选择器会自己出现。
+- insert:
+    - id: dsh-thinking-levels
+      name: 'dsh-thinking-levels'
+      config: {}
