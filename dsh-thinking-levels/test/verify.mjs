@@ -91,6 +91,7 @@ function createContext() {
   const emitted = [];
   const ctx = {
     emitted,
+    listeners,
     disposers: [],
     services: {},
     logger: { info() {}, warn() {}, error() {} },
@@ -176,13 +177,17 @@ function createLlm(routes) {
 }
 
 /** Mount the plugin the way the loader does. */
-function mount(config, llm) {
+function mount(config, llm, extras = {}) {
   const ctx = createContext();
   // The real scope exposes injected services as properties, so the fake must too.
   ctx.llm = llm;
   ctx.services.llm = llm;
   ctx.webServer = { register: () => () => {} };
   ctx.services.webServer = ctx.webServer;
+  for (const [name, service] of Object.entries(extras)) {
+    ctx[name] = service;
+    ctx.services[name] = service;
+  }
   apply(ctx, config);
   return ctx;
 }
@@ -250,6 +255,47 @@ await check('the picker sees the capability through resolveModelInfo', async () 
     { id: 'max', name: 'Max' },
   ]);
   assert.equal(resolved.reasoning.defaultEffort, undefined);
+});
+
+await check('switching models carries the current effort when the target supports it', async () => {
+  const route = thirdPartyRoute();
+  const llm = createLlm([route]);
+  const events = [{
+    type: 'model/selection',
+    data: { provider: 'ymengguomo', model: 'deepseek-v4.1-flash', reasoningEffort: 'high' },
+  }];
+  const session = {
+    seq: events.length,
+    snapshotEvents: () => events,
+  };
+  const agent = { session };
+  let received;
+  const controller = {
+    async resolveAgent() { return { agent }; },
+    async selectModel(request) { received = request; return { selected: request }; },
+  };
+  mount({}, llm, { sessionController: controller });
+  await controller.selectModel({ sessionId: 'session-1', provider: 'ymengguomo', model: 'mimo-v2.6-pro' });
+  assert.equal(received.reasoningEffort, 'high');
+});
+
+await check('a retry request rereads the latest model and effort selection', async () => {
+  const route = thirdPartyRoute();
+  const llm = createLlm([route]);
+  const events = [{
+    type: 'model/selection',
+    data: { provider: 'ymengguomo', model: 'mimo-v2.6-pro', reasoningEffort: 'max' },
+  }];
+  const session = { seq: events.length, snapshotEvents: () => events };
+  const agent = { session };
+  const ctx = mount({}, llm);
+  const listeners = [...ctx.listeners.get('agent/request')];
+  assert.ok(listeners.length > 0);
+  let result = { provider: 'ymengguomo', model: 'deepseek-v4.1-flash', reasoningEffort: 'low' };
+  for (const listener of listeners) {
+    result = await listener({ agent }, async () => result);
+  }
+  assert.deepEqual(result, { provider: 'ymengguomo', model: 'mimo-v2.6-pro', reasoningEffort: 'max' });
 });
 
 await check('every offered level passes the request-path validation', async () => {

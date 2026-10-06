@@ -59,6 +59,9 @@ const DEFAULT_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'];
 /** Route prefix owned by this plugin; it outranks the kernel's `/api` by length. */
 const ROUTE_PREFIX = '/api/dsh-thinking-levels';
 
+/** Maximum durable events inspected when refreshing a Session selection. */
+const SELECTION_SCAN_EVENTS = 512;
+
 /**
  * Non-enumerable marker recording which configuration revision produced the
  * decoration currently on a descriptor. Non-enumerable so it never reaches a
@@ -83,6 +86,56 @@ function stringList(value) {
     if (text !== undefined) out.push(text);
   }
   return out;
+}
+
+/** Return a durable model selection, if one is present in the Session history. */
+function latestSelection(session) {
+  try {
+    const seq = Number(session?.seq ?? 0);
+    const from = Math.max(0, (Number.isFinite(seq) ? seq : 0) - SELECTION_SCAN_EVENTS);
+    const events = session.snapshotEvents(from);
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (event?.type !== 'model/selection') continue;
+      const data = event.data;
+      if (data !== null && typeof data === 'object' && typeof data.provider === 'string' && typeof data.model === 'string') {
+        return {
+          provider: data.provider,
+          model: data.model,
+          ...(typeof data.reasoningEffort === 'string' ? { reasoningEffort: data.reasoningEffort } : {}),
+        };
+      }
+    }
+  } catch {
+    // A cold or partially restored Session keeps the request's original config.
+  }
+  return undefined;
+}
+
+/** Read reasoning metadata for an exact route/model pair. */
+async function reasoningFor(llm, provider, model) {
+  try {
+    const info = await llm.resolveModelInfo(provider, model);
+    return info?.reasoning;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Keep the current effort when changing models, but only if the target accepts it.
+ * An explicit request effort always wins; an unsupported effort falls back to the
+ * target model's adapter default by omitting the field.
+ */
+async function carryEffort(llm, previous, next) {
+  if (previous === undefined || next === undefined) return next;
+  if (previous.provider === next.provider && previous.model === next.model) return next;
+  if (previous.reasoningEffort === undefined) return next;
+  const reasoning = await reasoningFor(llm, next.provider, next.model);
+  if (reasoning?.efforts?.some((effort) => effort.id === previous.reasoningEffort)) {
+    return { ...next, reasoningEffort: previous.reasoningEffort };
+  }
+  return next;
 }
 
 /**
@@ -611,6 +664,52 @@ export function apply(ctx, config) {
     );
     scoped.effect(() => () => runtime.dispose(), 'dsh-thinking-levels: unwrap adapters');
     reconcile();
+  });
+
+  ctx.inject(['sessionController', 'llm'], (scoped) => {
+    const controller = scoped.sessionController;
+    const llm = scoped.llm;
+    const originalSelectModel = controller?.selectModel;
+    if (typeof originalSelectModel === 'function') {
+      controller.selectModel = async function selectModelWithEffort(request) {
+        if (request?.reasoningEffort !== undefined || typeof request?.sessionId !== 'string') {
+          return originalSelectModel.call(this, request);
+        }
+        try {
+          const resolved = await this.resolveAgent(request.sessionId);
+          const agent = resolved?.agent;
+          const previous = latestSelection(agent?.session);
+          const carried = await carryEffort(llm, previous, {
+            provider: request.provider,
+            model: request.model,
+          });
+          return originalSelectModel.call(this, { ...request, ...carried });
+        } catch {
+          return originalSelectModel.call(this, request);
+        }
+      };
+    }
+
+    // This is global on purpose: `agent/request` fires for every attempt,
+    // including a retry after the failure UI has parked the turn. Calling next()
+    // first lets the built-in selection waterfall run; the final override reads
+    // the durable Session selection that may have changed while the error was
+    // visible.
+    const disposeRequest = ctx.on('agent/request', async ({ agent }, next) => {
+      const resolved = await next();
+      const selected = latestSelection(agent?.session);
+      if (selected === undefined) return resolved;
+      return {
+        ...resolved,
+        provider: selected.provider,
+        model: selected.model,
+        ...(selected.reasoningEffort === undefined ? {} : { reasoningEffort: selected.reasoningEffort }),
+      };
+    });
+    scoped.effect(() => () => {
+      if (typeof originalSelectModel === 'function') controller.selectModel = originalSelectModel;
+      disposeRequest?.();
+    }, 'dsh-thinking-levels: live retry selection');
   });
 
   ctx.inject(['webServer'], (scoped) => {

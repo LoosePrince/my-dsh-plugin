@@ -44,6 +44,11 @@ PiAiAdapter.modelOf(snapshot, provider, model)
 
 补完之后插件会发一次 `llm/adapters-updated`，浏览器端已经订阅了它（`catalog.refresh()`），所以**不用刷新页面**，打开模型菜单就能看到「推理等级」。
 
+模型切换和重试也由插件一起处理：
+
+- 切换模型时，如果当前有显式选择的 effort，且新模型也提供同一个 effort，插件会把它带到新模型；新模型不支持时则省略该字段，让新模型使用自己的默认值。
+- 每次 `agent/request`（包括错误后的手动重试）都会重新读取 Session 最新的 `model/selection`。因此错误弹窗出现后先切换模型或思考深度，再点「重试」，这次请求会立即使用新选择，而不会复用失败时冻结的旧配置。
+
 ### 什么不会被改
 
 - 已经声明过思考能力的模型（pi-ai 内置目录里的、或你自己写了 `reasoningEfforts` 的）**一律不动** —— 显式声明永远优先于插件的默认值。
@@ -133,7 +138,7 @@ curl.exe -s -X POST http://127.0.0.1:19387/api/dsh-thinking-levels/resync
 node test/verify.mjs
 ```
 
-覆盖：第三方路由拿到 6 个等级、`resolveModelInfo` 的形状、请求路径校验、已声明能力的模型不被改动、`levels`/`wire`/`skipModels`/`enabled` 配置、`dispose` 还原、以及最关键的 —— 选 `high`/`max`/`xhigh`/`low` 时 `reasoning_effort` 真的出现在请求体里、选 `off` 时什么都不发。
+覆盖：第三方路由拿到 6 个等级、模型切换保留兼容 effort、错误后的重试读取最新模型/effort、`resolveModelInfo` 的形状、请求路径校验、已声明能力的模型不被改动、`levels`/`wire`/`skipModels`/`enabled` 配置、`dispose` 还原、以及最关键的 —— 选 `high`/`max`/`xhigh`/`low` 时 `reasoning_effort` 真的出现在请求体里、选 `off` 时什么都不发。
 
 ---
 
